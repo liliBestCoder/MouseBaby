@@ -126,7 +126,7 @@ class UDPProxy(Proxy):
             with self.lock:
                 sock = self.client_socket_map.get(client_id)[0]
                 if sock:
-                    sock.sendto(payload, ("101.201.215.20", self.port))
+                    sock.sendto(payload, ("127.0.0.1", self.port))
                 else:
                     print(f"No socket for client_id={client_id}, drop packet")
 
