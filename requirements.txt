@@ -1,0 +1,3 @@
+PyYAML>=6.0          # 对应 import yaml
+pystun3>=1.0.0       # 对应 import stun
+bypy>=1.5.0          # 对应 from bypy import ByPy

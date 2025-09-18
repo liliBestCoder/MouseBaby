@@ -1,0 +1,4 @@
+mode: server
+id: B
+peer: A
+port: 1194
