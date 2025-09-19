@@ -13,7 +13,7 @@ class P2PNode:
         self.peer = None
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("", 0))
-        self.sock.settimeout(10)
+        self.sock.settimeout(0.3)
         self.stun_host = stun_host
         self.stun_port = stun_port
         self.local_ip, self.local_port = self.sock.getsockname()
@@ -29,13 +29,16 @@ class P2PNode:
 
         self.keepalive_running = True
         threading.Thread(target=self._send_keepalive_packet, daemon=True).start()
-
         self.got_peer = threading.Event()
+
+        self.recv_thread = threading.Thread(target=self._recv_punch, daemon=True)
+        self.recv_thread.start()
+
 
     def send_to_peer(self, data: bytes):
         self.sock.sendto(data, self.peer)
 
-    def recv(self, handler, timeout=2):
+    def recv(self, handler, timeout=0.3):
         try:
             self.sock.settimeout(timeout)
             data, addr = self.sock.recvfrom(4096)
@@ -63,45 +66,45 @@ class P2PNode:
         self.keepalive_running = False
         #print("[Core] Stopped sending keepalive packets.")
 
+    def _recv_punch(self):
+        def handle_punch(data, addr):
+            text = data.decode(errors='ignore').strip()
+            # 检查是否来自目标对端
+            if addr == self.peer:
+                #print(f"[recv] [{time.time():.3f}] {addr}: {text}")
+                if "PUNCH" in text:
+                    print(f"[punch] [{time.time():.3f}] received punch from target peer {addr}")
+                    ack_payload = f"ACK from {self.node_id}".encode()
+                    print(f"[punch] [{time.time():.3f}] sending ACK to {addr}")
+                    self.sock.sendto(ack_payload, addr)
+                    self.got_peer.set()
+                    return
+
+                elif "ACK" in text:
+                    print(f"[punch] [{time.time():.3f}] received ack from target peer {addr}")
+                    self.got_peer.set()
+                    return
+            else:
+                pass
+        def do_recv_punch_loop(timeout=30):
+            deadline = time.time() + timeout
+            print(f"[punch] start punch receiving, deadline: {deadline:.3f}")
+
+            while time.time() < deadline and not self.got_peer.is_set():
+                try:
+                    self.recv(handle_punch, timeout=0.3)
+                except ConnectionResetError:
+                    print(f"[punch] [{time.time():.3f}] recv punch ConnectionResetError: 远程主机强迫关闭了一个现有的连接")
+                    continue
+                except Exception as e:
+                    print(f"[punch] [{time.time():.3f}] recv punch err {self.peer}: {e}")
+                    continue
+
+            self.sock.settimeout(0.3)
+
+        do_recv_punch_loop()
+
     def punch(self):
-        def recv_punch():
-            def handle_punch(data, addr):
-                text = data.decode(errors='ignore').strip()
-                # 检查是否来自目标对端
-                if addr == self.peer:
-                    #print(f"[recv] [{time.time():.3f}] {addr}: {text}")
-                    if "PUNCH" in text:
-                        print(f"[punch] [{time.time():.3f}] received punch from target peer {addr}")
-                        ack_payload = f"ACK from {self.node_id}".encode()
-                        print(f"[punch] [{time.time():.3f}] sending ACK to {addr}")
-                        self.sock.sendto(ack_payload, addr)
-                        self.got_peer.set()
-                        return
-
-                    elif "ACK" in text:
-                        print(f"[punch] [{time.time():.3f}] received ack from target peer {addr}")
-                        self.got_peer.set()
-                        return
-                else:
-                    pass
-            def do_recv_punch_loop(timeout=30):
-                self._stop_keepalive()
-                deadline = time.time() + timeout
-                print(f"[punch] start punch receiving, deadline: {deadline:.3f}")
-
-                while time.time() < deadline :
-                    try:
-                        self.recv(handle_punch, timeout=1)
-                    except ConnectionResetError:
-                        print(f"[punch] [{time.time():.3f}] recv punch ConnectionResetError: 远程主机强迫关闭了一个现有的连接")
-                        continue
-                    except Exception as e:
-                        print(f"[punch] [{time.time():.3f}] recv punch err {self.peer}: {e}")
-                        continue
-
-                self.sock.settimeout(10)
-
-            do_recv_punch_loop()
         def do_punch():
             print(f"[punch] start punching to {self.peer} from local {self.local_port}")
             payload = f"PUNCH from {self.node_id}".encode()
@@ -112,8 +115,6 @@ class P2PNode:
             wait_time = next_sync_point - current_time
             print(f"[punch] waiting {wait_time:.2f} seconds for time synchronization...")
             time.sleep(wait_time)
-
-            self._stop_keepalive()
 
             # 增加更多的调试信息
             for i in range(180):
@@ -129,19 +130,17 @@ class P2PNode:
                 return
 
         send_thread = threading.Thread(target=do_punch, daemon=True)
-        recv_thread = threading.Thread(target=recv_punch, daemon=True)
-
-        recv_thread.start()
         send_thread.start()
 
         success = self.got_peer.wait(timeout=30)
 
         send_thread.join()
-        recv_thread.join()
+        self.recv_thread.join()
 
         if not success:
             print(f"[punch] [{time.time():.3f}] punched to {self.peer} failed")
             return False
 
+        self._stop_keepalive()
         print(f"[punch] [{time.time():.3f}] punched to {self.peer} success")
         return True

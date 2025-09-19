@@ -2,9 +2,17 @@ from abc import ABC, abstractmethod
 
 class Proxy(ABC):
     @abstractmethod
-    def forward_to_tunnel(self):
+    def client_forward_to_tunnel(self):
         pass
 
     @abstractmethod
-    def forward_to_client(self):
+    def tunnel_forward_to_client(self):
+        pass
+
+    @abstractmethod
+    def server_forward_to_tunnel(self):
+        pass
+
+    @abstractmethod
+    def tunnel_forward_to_server(self):
         pass
