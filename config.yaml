@@ -1,4 +1,4 @@
-mode: server
-id: B
-peer: A
-port: 1194
+mode: client
+id: A
+peer: B
+port: 27000

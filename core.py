@@ -86,7 +86,7 @@ class P2PNode:
                     return
             else:
                 pass
-        def do_recv_punch_loop(timeout=30):
+        def do_recv_punch_loop(timeout=60):
             deadline = time.time() + timeout
             print(f"[punch] start punch receiving, deadline: {deadline:.3f}")
 
@@ -108,22 +108,26 @@ class P2PNode:
         def do_punch():
             print(f"[punch] start punching to {self.peer} from local {self.local_port}")
             payload = f"PUNCH from {self.node_id}".encode()
-
             # 等待下一个10秒的整数倍时间点
-            current_time = time.time()
-            next_sync_point = (int(current_time) // 10 + 1) * 10
-            wait_time = next_sync_point - current_time
-            print(f"[punch] waiting {wait_time:.2f} seconds for time synchronization...")
-            time.sleep(wait_time)
+            #current_time = time.time() + 1
+            #next_sync_point = (int(current_time) // 10 + 1) * 10
+            #wait_time = next_sync_point - current_time
+            #wait_time = wait_time + j * 0.1
+            #print(f"[punch] waiting {wait_time:.2f} seconds for time synchronization...")
+            #wait_time = wait_time - 0.1 * j
+            #if wait_time > 0:
+                #continue
+            #time.sleep(wait_time)
 
-            # 增加更多的调试信息
-            for i in range(180):
-                try:
-                    print(f"[punch] [{time.time():.3f}] send punching payload {i+1}/180 to {self.peer}")
-                    self.send_to_peer(payload)
-                    time.sleep(0.2)
-                except Exception as e:
-                    print("send err", e)
+            for j in range(20):
+                # 增加更多的调试信息
+                for i in range(5):
+                    try:
+                        print(f"[punch] [{time.time():.3f}] send punching payload {i+1}/5 to {self.peer}")
+                        self.send_to_peer(payload)
+                        time.sleep(0.1)
+                    except Exception as e:
+                        print("send err", e)
             print(f"[punch] [{time.time():.3f}] finished to send punch packets")
 
             if self.got_peer.is_set():

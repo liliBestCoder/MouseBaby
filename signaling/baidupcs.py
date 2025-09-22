@@ -72,7 +72,26 @@ class BaiduPCSSignaling(Signaling):
             #print(f"[Signaling] Uploaded {peer_id}.txt")
             pass
         else:
-            raise RuntimeError(f"[Signaling] 上传失败, code={result.returncode}")
+            raise Exception(f"[Signaling] 上传失败, code={result.returncode}")
+
+    def ready(self, peer_id: str):
+        cmd = [self.BAIDU_PCS_BIN, "mkdir", f"/apps/mousebaby/{peer_id}-ready"]
+        subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore"
+        )
+
+    def del_f(self, peer_id: str):
+        cmd = [self.BAIDU_PCS_BIN, "rm", f"/apps/mousebaby/{peer_id}-ready"]
+        subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore")
+
+    def remote_file_exists(self, node_id: str, peer_id: str):
+        cmd = [self.BAIDU_PCS_BIN, "ls", "/apps/mousebaby"]
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+        return f"{node_id}-ready" in result.stdout and f"{peer_id}-ready" in result.stdout
 
     def download(self, peer_id: str) -> str:
         remote_path = f"/apps/mousebaby/{peer_id}.txt"
@@ -91,5 +110,5 @@ class BaiduPCSSignaling(Signaling):
             with open(local_tmp, "r", encoding="utf-8") as f:
                 return f.read()
 
-        raise RuntimeError(f"[Signaling] 下载失败, code={result.returncode}")
+        raise Exception(f"[Signaling] 下载失败, code={result.returncode}")
 

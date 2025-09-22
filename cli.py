@@ -1,8 +1,11 @@
-import yaml
 import time
+
+import yaml
+
 from core import P2PNode
-from tunnel import Tunnel
 from signaling.baidupcs import BaiduPCSSignaling
+from tunnel import Tunnel
+
 
 def main():
     # 1️⃣ 读取配置文件
@@ -36,25 +39,29 @@ def main():
         try:
             if got_peer_status:
                 break
-
             i = i + 1
             peer_info = signaling.download(peer_id)
             peer_ip, peer_port, ts_str = peer_info.split(":")
             peer_ts = int(ts_str)
             if time.time() - peer_ts > 20:
                 print(".", end="", flush=True)
-                time.sleep(5)
+                time.sleep(1)
                 continue
 
             got_peer_status = True
         except Exception as e:
             print(".", end="", flush=True)
-        time.sleep(5)
+        time.sleep(1)
 
     print()
     if not got_peer_status:
         print(f"[CLI] 获取对端地址失败")
         return
+
+    signaling.ready(node_id)
+
+    while not signaling.remote_file_exists(node_id, peer_id):
+        time.sleep(0.001)
 
     print(f"[CLI] 本地 UDP: {node_id} {node.local_ip}:{node.local_port}, 公网: {node.public_ip}:{node.public_port}, (NAT 类型: {node.nat_type})")
     print(f"[CLI] 对端 UDP: {peer_id} {peer_ip}:{peer_port}")
@@ -63,8 +70,10 @@ def main():
 
     punched = node.punch()
     if not punched :
+        signaling.del_f(node_id)
         return
 
+    signaling.del_f(node_id)
     # 6️⃣ 启动隧道
     tunnel = Tunnel(
         mode=mode,
@@ -84,6 +93,7 @@ def main():
         while True:
             time.sleep(5)
     except KeyboardInterrupt:
+        signaling.del_f(node_id)
         print("[CLI] 退出")
 
 
