@@ -69,14 +69,17 @@ class P2PNode:
     def _recv_punch(self):
         def handle_punch(data, addr):
             text = data.decode(errors='ignore').strip()
-            # 检查是否来自目标对端
-            if addr == self.peer:
+            # 检查是否来自目标对端 只检测ip 以兼容一端是对称nat的情况
+            if addr[0] == self.peer[0]:
                 #print(f"[recv] [{time.time():.3f}] {addr}: {text}")
                 if "PUNCH" in text:
                     print(f"[punch] [{time.time():.3f}] received punch from target peer {addr}")
                     ack_payload = f"ACK from {self.node_id}".encode()
                     print(f"[punch] [{time.time():.3f}] sending ACK to {addr}")
                     self.sock.sendto(ack_payload, addr)
+                    # 说明有一端不是nat 新开了端口 这个时候peer地址要换下
+                    if addr != self.peer:
+                        self.peer = addr
                     self.got_peer.set()
                     return
 
@@ -86,7 +89,7 @@ class P2PNode:
                     return
             else:
                 pass
-        def do_recv_punch_loop(timeout=60):
+        def do_recv_punch_loop(timeout=180):
             deadline = time.time() + timeout
             print(f"[punch] start punch receiving, deadline: {deadline:.3f}")
 

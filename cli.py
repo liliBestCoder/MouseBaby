@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timezone, timedelta
 
 import yaml
 
@@ -19,6 +20,21 @@ def main():
 
     # 2️⃣ 创建信令客户端
     signaling = BaiduPCSSignaling()
+
+    start_time = input("请输入开始时间(格式: 2021-01-01 00:00:00)：")
+    # 北京时间，UTC+8
+    tz = timezone(timedelta(hours=8))
+    target = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S").replace(tzinfo=tz).timestamp()
+
+    while True:
+        now = time.time()
+        if now >= target:
+            break
+        remaining = target - now
+        print(f"还需要等待 {remaining} 秒...", end="\r")
+        time.sleep(0.001)
+
+    start = time.time()
 
     # 3️⃣ 创建节点
     node = P2PNode(node_id=node_id, peer_id=peer_id)
@@ -58,22 +74,19 @@ def main():
         print(f"[CLI] 获取对端地址失败")
         return
 
-    signaling.ready(node_id)
-
-    while not signaling.remote_file_exists(node_id, peer_id):
-        time.sleep(0.001)
-
     print(f"[CLI] 本地 UDP: {node_id} {node.local_ip}:{node.local_port}, 公网: {node.public_ip}:{node.public_port}, (NAT 类型: {node.nat_type})")
     print(f"[CLI] 对端 UDP: {peer_id} {peer_ip}:{peer_port}")
 
     node.peer = (peer_ip, int(peer_port))
 
+    #同步时钟
+    while time.time() - start < 10:
+        time.sleep(0.001)
+
     punched = node.punch()
     if not punched :
-        signaling.del_f(node_id)
         return
 
-    signaling.del_f(node_id)
     # 6️⃣ 启动隧道
     tunnel = Tunnel(
         mode=mode,
@@ -93,7 +106,6 @@ def main():
         while True:
             time.sleep(5)
     except KeyboardInterrupt:
-        signaling.del_f(node_id)
         print("[CLI] 退出")
 
 
